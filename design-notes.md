@@ -15,6 +15,8 @@
 ## Behaviour
 - Completing a focus session logs it to today and the active task; every 4th is followed by a long break
 - Data is stored in the browser (localStorage). The app starts empty; there is no sample data
+- Account (optional, only when `config.js` has Supabase keys): "Sign in" pill in the nav and "Sign in to sync" in the footer open one dialog. Step 1 asks for an email; step 2 says "Check your email" and waits for the link to be opened (another tab signing in closes the dialog). "Send again" resends; "Have a code instead?" reveals a code field (big serif digits) for when the email template includes one. The footer status becomes "Synced to <email>", "Saving…", "Offline…" or "Couldn't reach the server…". "Sign out" asks first, pushes any unsynced changes, refuses (with a red note) if that fails, then clears this browser
+- Sync: a pull, then a merge, then a push, with a version number on the row so two devices can't overwrite each other. Merge rules: per task, the newer edit (`u`) wins; deletions are kept as markers (`x`, pruned after 90 days); each day's session count takes the higher value. An import sets a new generation id (`e`), so other devices take it instead of merging
 - Backup: the footer's "Download backup" saves `tomato-backup-YYYY-MM-DD.json` (tasks, session history, current task). "Import backup" checks the file, shows what it contains and asks before replacing this browser's data, with a link to download the current data first. Bad files are rejected without touching anything. The theme is not included
 - Motion: tab fade-in, check pop, button press; all disabled for reduced-motion
 

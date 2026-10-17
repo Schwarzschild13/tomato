@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tomato · Privacy</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<script>try{var t=localStorage.getItem('tomato.theme');if(t!=='dark'&&t!=='light')t=matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';document.documentElement.dataset.theme=t}catch(e){document.documentElement.dataset.theme='light'}</script>
+<style>
+:root{--bg:#f6f1e7;--ink:#2b2622;--mute:#8a8176;--line:#e4dccd;--tom:#c8442b;--serif:Georgia,"Iowan Old Style",serif;--sans:ui-sans-serif,system-ui,-apple-system,sans-serif;color-scheme:light}
+:root[data-theme=dark]{--bg:#1c1815;--ink:#f1e9de;--mute:#a09584;--line:#3a332c;--tom:#e0583d;color-scheme:dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 var(--sans)}
+main{max-width:640px;margin:0 auto;padding:40px 16px 72px}
+a{color:var(--ink);text-decoration-color:var(--line);text-underline-offset:3px}a:hover{color:var(--tom);text-decoration-color:currentColor}
+.back{font-size:14px;color:var(--mute)}
+h1{font:italic 34px/1.15 var(--serif);margin:28px 0 4px}
+h2{font:italic 21px var(--serif);margin:34px 0 6px}
+.sub{color:var(--mute);font-size:14px;margin:0}
+ul{padding-left:20px}li{margin:4px 0}
+</style></head>
+<body><main>
+<a class="back" href="./">← Back to Tomato</a>
+<h1>Privacy</h1>
+<p class="sub">Last updated 17 October 2026</p>
+
+<p>Tomato is a small personal Pomodoro and to-do app. It has no ads, no analytics and no tracking, and your data is never sold or shared.</p>
+
+<h2>Without an account</h2>
+<p>Everything you enter (tasks, priorities, due dates and how many focus sessions you did each day) is saved only in your browser's local storage on that device. Nothing is sent anywhere.</p>
+
+<h2>When you sign in</h2>
+<p>Signing in is optional. It lets you use the same tasks on every device.</p>
+<ul>
+ <li><b>What is stored:</b> your tasks and daily focus history, plus your email address and the basic profile Google shares when you sign in with Google (your name and profile picture). Tomato asks Google for nothing else.</li>
+ <li><b>Where:</b> in a database hosted by <a href="https://supabase.com/privacy">Supabase</a>, which also handles sign-in. Data is sent over encrypted connections and encrypted at rest.</li>
+ <li><b>Who can see it:</b> only you, from your signed-in devices. The database refuses to show anyone one person's data unless they are signed in as that person. As the operator of the app, the developer can technically view the database, and only does so to fix problems you report.</li>
+ <li><b>What it's used for:</b> only to show and sync your own tasks in Tomato.</li>
+</ul>
+
+<h2>Removing your data</h2>
+<ul>
+ <li>Signing out removes your data from that browser. It stays in your account until you ask for it to be deleted.</li>
+ <li>To delete your account and everything stored with it, email <a href="mailto:harikrishnanpr515@gmail.com">harikrishnanpr515@gmail.com</a> from the address you signed in with. It will be deleted within 30 days.</li>
+ <li>You can download a copy of your data at any time with <b>Download backup</b> at the bottom of the app.</li>
+</ul>
+
+<h2>Contact</h2>
+<p>Questions about this policy: <a href="mailto:harikrishnanpr515@gmail.com">harikrishnanpr515@gmail.com</a>.</p>
+</main></body></html>

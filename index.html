@@ -144,13 +144,28 @@ ul{list-style:none;margin:0;padding:0}
 .dlg .acts{display:flex;gap:10px;justify-content:flex-end;align-items:center;margin-top:24px}
 .foot .ok{color:var(--ink);animation:in .25s var(--ease)}
 @media(max-width:760px){.foot span{flex-basis:100%}}
+/* account */
+nav .signin{align-self:center;margin:0;padding:6px 14px;border:1px solid var(--line);border-radius:999px;font-size:13px}
+nav .signin:hover{border-color:var(--mute)}nav .signin:focus-visible{outline:2px solid var(--tom);outline-offset:3px}
+.field{display:block;width:100%;margin-top:18px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:11px 18px;outline:none}
+.field:focus{border-color:var(--tom)}
+.field.code{font:400 26px/1 var(--serif);letter-spacing:.32em;text-align:center;font-variant-numeric:tabular-nums;padding:12px 18px}
+.dlg p.err{color:var(--tom);font-size:13px;margin-top:10px}
+.pill:disabled{opacity:.6;cursor:default;transform:none}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:20px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:12px 18px;font-weight:600;transition:border-color .15s,transform .12s}
+.gbtn:hover{border-color:var(--mute)}.gbtn:active{transform:scale(.98)}.gbtn:disabled{opacity:.6;cursor:default}.gbtn:focus-visible{outline:2px solid var(--tom);outline-offset:3px}
+.or{display:flex;align-items:center;gap:12px;margin:20px 0 0;color:var(--mute);font-size:12px}.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--line)}
+.erow{display:flex;gap:8px;align-items:center}.erow .field{margin-top:12px;flex:1;min-width:0}.erow .ghost{margin-top:12px;padding:10px 16px;flex:none}
 
 </style></head>
 <body><div id="splash" role="presentation"><img src="img/cat.png" alt=""><h1>Welcome <span>Kudu Kudu</span></h1></div>
+<script defer src="config.js"></script>
+<script defer src="vendor/supabase.js"></script>
 <script defer src="vendor/alpine.min.js"></script>
 <div class="wrap" x-data="app()" x-cloak>
 <nav><b class="brand">Tomato</b>
  <div class="tabs"><template x-for="t in tabs"><button :class="tab===t.id&&'on'" @click="go(t.id)" x-text="t.n"></button></template></div>
+ <button class="signin" type="button" x-show="cloud&&!user" @click="openAcct()">Sign in</button>
  <button class="theme" type="button" role="switch" :aria-checked="theme==='dark'" aria-label="Dark theme" :title="theme==='dark'?'Switch to light':'Switch to dark'" @click="toggleTheme()">
   <span class="g sun" aria-hidden="true">☀︎</span><span class="g moon" aria-hidden="true">☾</span>
   <svg class="cat" viewBox="0 0 36 36" aria-hidden="true">
@@ -200,7 +215,7 @@ ul{list-style:none;margin:0;padding:0}
    <span class="n" x-text="t.t"></span>
    <span class="sub" x-show="t.due" x-text="fmtShort(t.due)"></span>
    <span class="tag" x-show="t.n" x-text="'🍅 '+t.n"></span>
-   <select class="sel" style="padding:4px 8px;font-size:12px" :value="t.q" @change="t.q=$event.target.value" aria-label="Priority"><template x-for="q in quads" :key="q.id"><option :value="q.id" :selected="t.q===q.id" x-text="q.n"></option></template></select>
+   <select class="sel" style="padding:4px 8px;font-size:12px" :value="t.q" @change="t.q=$event.target.value;t.u=Date.now()" aria-label="Priority"><template x-for="q in quads" :key="q.id"><option :value="q.id" :selected="t.q===q.id" x-text="q.n"></option></template></select>
    <button class="x" @click="del(t)" aria-label="Delete task">×</button></li></template></ul>
  <div class="empty" x-show="!listed().length" x-text="filter==='done'?'Nothing finished yet.':'All clear.'"></div>
 </section>
@@ -261,18 +276,45 @@ ul{list-style:none;margin:0;padding:0}
 </section>
 <div class="tip" x-show="tipText" :style="'left:'+tipX+'px;top:'+tipY+'px'" x-text="tipText" x-cloak></div>
 
-<footer class="foot"><span role="status" :class="toast&&'ok'" x-text="toast?'✓ '+toast:'Your data is saved in this browser only.'"></span>
+<footer class="foot"><span role="status" :class="toast&&'ok'" x-text="toast?'✓ '+toast:status()"></span>
+ <button class="link" type="button" x-show="cloud&&!user" @click="openAcct()">Sign in to sync</button>
+ <button class="link" type="button" x-show="user" @click="openAcct()">Sign out</button>
  <button class="link" type="button" @click="exportData()">Download backup</button>
  <button class="link" type="button" @click="$refs.file.click()">Import backup</button>
+ <a class="link" href="privacy.html">Privacy</a>
  <input type="file" x-ref="file" accept=".json,application/json" hidden @change="readFile($event)"></footer>
 <dialog class="dlg" x-ref="dlg" aria-labelledby="dlg-t" @close="imp=null;impErr=''">
  <template x-if="impErr"><div><h2 id="dlg-t">Can't import this file</h2><p x-text="impErr"></p>
   <div class="acts"><button class="pill" type="button" style="padding:9px 24px" autofocus @click="$refs.dlg.close()">OK</button></div></div></template>
  <template x-if="imp"><div><h2 id="dlg-t" x-text="hasData()?'Replace your data?':'Import this backup?'"></h2>
   <p>This backup has <b x-text="summary(imp.data)"></b><span x-text="imp.at?', saved '+imp.at:''"></span>.</p>
-  <p x-show="hasData()">It will replace the <b x-text="summary({tasks,h})"></b> in this browser. <button class="link" type="button" @click="exportData();saved=true" x-text="saved?'Downloaded ✓':'Download them first'"></button></p>
+  <p x-show="hasData()">It will replace the <b x-text="summary({tasks,h})"></b> <span x-text="user?'in your account, on every device':'in this browser'"></span>. <button class="link" type="button" @click="exportData();saved=true" x-text="saved?'Downloaded ✓':'Download them first'"></button></p>
   <div class="acts"><button class="ghost" type="button" autofocus @click="$refs.dlg.close()">Cancel</button>
    <button class="pill" type="button" style="padding:9px 24px" @click="applyImport()" x-text="hasData()?'Replace data':'Import'"></button></div></div></template>
+</dialog>
+<dialog class="dlg" id="acct" aria-labelledby="acct-t" @close="acct.err='';acct.busy=false">
+ <template x-if="!user&&acct.step==='email'"><form @submit.prevent="sendCode()" novalidate><h2 id="acct-t">Sign in to sync</h2>
+  <p>Use Tomato on any device. Your tasks and focus history are saved to your account.</p>
+  <p x-show="hasData()">The <b x-text="summary({tasks,h})"></b> in this browser will be added to your account.</p>
+  <button class="gbtn" type="button" :disabled="acct.busy" @click="google()" autofocus><svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span x-text="acct.busy==='google'?'Opening Google…':'Continue with Google'"></span></button>
+  <div class="or"><span>or get a link by email</span></div>
+  <div class="erow"><input class="field" type="email" autocomplete="email" placeholder="you@example.com" aria-label="Email" x-model="acct.email">
+   <button class="ghost" type="submit" :disabled="acct.busy" x-text="acct.busy===true?'Sending…':'Email me'"></button></div>
+  <p class="err" role="alert" x-show="acct.err" x-text="acct.err"></p>
+  <div class="acts"><button class="ghost" type="button" @click="document.getElementById('acct').close()">Cancel</button></div></form></template>
+ <template x-if="!user&&acct.step==='code'"><form @submit.prevent="verifyCode()" novalidate><h2 id="acct-t">Check your email</h2>
+  <p>We sent a sign-in link to <b x-text="acct.email"></b>. Open it on this device and you're in. This window can stay open.</p>
+  <p x-show="!acct.codeOn"><button class="link" type="button" @click="acct.codeOn=true;$nextTick(()=>$el.closest('form').querySelector('.code').focus())">Have a code instead?</button></p>
+  <input class="field code" x-show="acct.codeOn" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="······" aria-label="Code from the email" x-model="acct.code" @input="acct.code=acct.code.replace(/\D/g,'')">
+  <p class="err" role="alert" x-show="acct.err" x-text="acct.err"></p>
+  <div class="acts"><button class="link" type="button" style="margin-right:auto" @click="acct.step='email';acct.code='';acct.codeOn=false;acct.sent=false;acct.err=''">Use a different email</button>
+   <button class="pill" type="submit" style="padding:9px 24px" x-show="acct.codeOn" :disabled="acct.busy" x-text="acct.busy?'Checking…':'Sign in'"></button>
+   <button class="ghost" type="button" x-show="!acct.codeOn" :disabled="acct.busy" @click="sendCode()" x-text="acct.busy?'Sending…':acct.sent?'Sent ✓':'Send again'"></button></div></form></template>
+ <template x-if="user"><div><h2 id="acct-t">Sign out?</h2>
+  <p>Your tasks stay in the account for <b x-text="user.email"></b>. They'll be removed from this browser until you sign in again.</p>
+  <p class="err" role="alert" x-show="acct.err" x-text="acct.err"></p>
+  <div class="acts"><button class="ghost" type="button" autofocus @click="document.getElementById('acct').close()">Cancel</button>
+   <button class="pill" type="button" style="padding:9px 24px" :disabled="acct.busy" @click="signOut()" x-text="acct.busy?'Syncing…':'Sign out'"></button></div></div></template>
 </dialog>
 </div>
 
@@ -281,34 +323,56 @@ const KEY='tomato.v2',pad=n=>String(n).padStart(2,'0');
 const ymd=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const parse=k=>{const [y,m,d]=k.split('-').map(Number);return new Date(y,m-1,d)};
 const addDays=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
-const rnd=i=>Math.abs(Math.sin(i*12.9898)*43758.5453)%1;
-function seed(){return{h:{},cur:null,tasks:[],next:1}}
-function load(){try{localStorage.removeItem('tomato.v1');const r=localStorage.getItem(KEY);if(r)return JSON.parse(r)}catch(e){}return seed()}
-/* accepts a downloaded backup (or the raw stored object) and returns clean app data, or null if it isn't ours */
+const SYNC='tomato.sync',DAY=864e5;
+/* ids are random so tasks made on different devices never collide; older numeric ids are kept */
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function seed(){return{tasks:[],h:{},cur:null,x:{},e:''}}
+function load(){try{localStorage.removeItem('tomato.v1');const r=localStorage.getItem(KEY);if(r)return clean(JSON.parse(r))||seed()}catch(e){}return seed()}
+function loadSync(){try{const s=JSON.parse(localStorage.getItem(SYNC));if(s&&typeof s.uid==='string')return{uid:s.uid,rev:s.rev|0,force:s.force===true}}catch(e){}return{uid:null,rev:0,force:false}}
+/* accepts a downloaded backup, the stored object or the cloud copy and returns clean app data, or null if it isn't ours.
+   Same input gives the same output (keys sorted), so two copies can be compared as strings */
 function clean(o){const d=o&&o.app==='tomato'?o.data:o;if(!d||!Array.isArray(d.tasks)||!d.h||typeof d.h!=='object'||Array.isArray(d.h))return null;
  const Q=['do','plan','delegate','drop'],day=/^\d{4}-\d{2}-\d{2}$/,num=v=>typeof v==='number'&&isFinite(v)&&v>0?Math.floor(v):0;
- const tasks=d.tasks.filter(t=>t&&typeof t.t==='string'&&t.t.trim()).map(t=>({id:num(t.id),t:t.t,q:Q.includes(t.q)?t.q:'plan',d:t.d===true,n:num(t.n),due:typeof t.due==='string'&&day.test(t.due)?t.due:''}));
- const seen=new Set();for(const t of tasks){if(!t.id||seen.has(t.id))t.id=0;else seen.add(t.id)}
- let max=0;seen.forEach(i=>{if(i>max)max=i});for(const t of tasks)if(!t.id)t.id=++max;
- const h={};for(const k of Object.keys(d.h)){const v=d.h[k];if(day.test(k)&&v&&typeof v==='object'){const s=num(v.s),m=num(v.m);if(s||m)h[k]={s,m}}}
- return{tasks,h,cur:tasks.some(t=>t.id===d.cur)?d.cur:null,next:Math.max(num(d.next),max+1)}}
+ const okId=v=>typeof v==='string'&&/^[\w-]{1,40}$/.test(v)||num(v)===v&&v>0;
+ const tasks=d.tasks.filter(t=>t&&typeof t.t==='string'&&t.t.trim()).map(t=>({id:okId(t.id)?t.id:'',t:t.t,q:Q.includes(t.q)?t.q:'plan',d:t.d===true,n:num(t.n),due:typeof t.due==='string'&&day.test(t.due)?t.due:'',u:num(t.u)}));
+ const seen=new Set();for(const t of tasks){if(!t.id||seen.has(String(t.id)))t.id=newId();seen.add(String(t.id))}
+ const h={};for(const k of Object.keys(d.h).sort()){const v=d.h[k];if(day.test(k)&&v&&typeof v==='object'){const s=num(v.s),m=num(v.m);if(s||m)h[k]={s,m}}}
+ const x={},old=Date.now()-90*DAY,dx=d.x&&typeof d.x==='object'?d.x:{};for(const k of Object.keys(dx).sort())if(num(dx[k])>old)x[k]=num(dx[k]);
+ return{tasks,h,cur:tasks.some(t=>t.id===d.cur)?d.cur:null,x,e:typeof d.e==='string'?d.e:''}}
+/* combines this device's data (a) with the cloud copy (b) without losing either side's changes:
+   the newer edit of a task wins, deletions (x) stick, and each day keeps the higher session count */
+function merge(a,b){const x={...b.x};for(const k in a.x)x[k]=Math.max(x[k]||0,a.x[k]);
+ const bm=new Map(b.tasks.map(t=>[String(t.id),t])),fresh=[],out=b.tasks.slice();
+ for(const t of a.tasks){const o=bm.get(String(t.id));
+  if(!o)fresh.push(t);
+  else if(o.t!==t.t)fresh.push({...t,id:newId()}); /* two devices gave the same old numeric id to different tasks */
+  else if(t.u>o.u)out[out.indexOf(o)]=t}
+ const tasks=[...fresh,...out].filter(t=>!(x[String(t.id)]>=t.u)),h={};
+ for(const k of [...new Set([...Object.keys(a.h),...Object.keys(b.h)])].sort()){const p=a.h[k]||{s:0,m:0},q=b.h[k]||{s:0,m:0};h[k]={s:Math.max(p.s,q.s),m:Math.max(p.m,q.m)}}
+ return clean({tasks,h,cur:tasks.some(t=>t.id===a.cur)?a.cur:null,x,e:b.e})}
+let sb=null; /* Supabase client; kept outside Alpine so it isn't wrapped in a reactive proxy */
 function app(){const st=load();return{
  tabs:[{id:'focus',n:'Focus'},{id:'tasks',n:'Tasks'},{id:'matrix',n:'Matrix'},{id:'calendar',n:'Calendar'},{id:'progress',n:'Progress'}],
  modes:[{id:'focus',n:'Focus',s:1500},{id:'short',n:'Short break',s:300},{id:'long',n:'Long break',s:900}],
  quads:[{id:'do',n:'Do first',h:'Urgent · Important'},{id:'plan',n:'Schedule',h:'Important'},{id:'delegate',n:'Delegate',h:'Urgent'},{id:'drop',n:'Eliminate',h:'Neither'}],
  theme:document.documentElement.dataset.theme||'light',
  tab:'focus',mode:'focus',total:1500,left:1500,run:false,end:0,
- tasks:st.tasks,h:st.h,curId:st.cur,nextId:st.next,
+ tasks:st.tasks,h:st.h,curId:st.cur,x:st.x,e:st.e,
  draft:'',draftQ:'plan',draftDue:'',qdraft:'',adding:null,filter:'open',dragId:null,over:null,
  todayKey:ymd(new Date()),selDay:ymd(new Date()),month:new Date(new Date().getFullYear(),new Date().getMonth(),1),
  tipText:'',tipX:0,tipY:0,imp:null,impErr:'',saved:false,toast:'',toastT:0,
+ cloud:false,user:null,sync:loadSync(),synced:null,syncSt:'',syncing:false,again:false,pushT:0,
+ acct:{step:'email',email:'',code:'',codeOn:false,sent:false,err:'',busy:false},
  init(){const t=location.hash.slice(1);if(this.tabs.some(x=>x.id===t))this.tab=t;
   window.addEventListener('hashchange',()=>{const t=location.hash.slice(1);if(this.tabs.some(x=>x.id===t))this.tab=t});
   setInterval(()=>this.tick(),250);
-  this.$watch(()=>JSON.stringify([this.tasks,this.h,this.curId,this.nextId]),()=>this.save());
+  this.$watch(()=>JSON.stringify([this.tasks,this.h,this.curId,this.x,this.e]),()=>this.save());
   this.$watch('tab',()=>this.$nextTick(()=>this.scrollTiles()));this.$nextTick(()=>this.scrollTiles());
-  this.$watch('left',()=>{document.title=(this.run?this.clock()+' · ':'')+'Tomato'});this.save()},
- save(){try{localStorage.setItem(KEY,JSON.stringify({tasks:this.tasks,h:this.h,cur:this.curId,next:this.nextId}))}catch(e){}},
+  this.$watch('left',()=>{document.title=(this.run?this.clock()+' · ':'')+'Tomato'});this.save();this.initCloud()},
+ snap(){return clean({tasks:this.tasks,h:this.h,cur:this.curId,x:this.x,e:this.e})},
+ apply(d){this.tasks=d.tasks;this.h=d.h;this.curId=d.cur;this.x=d.x;this.e=d.e},
+ save(){const j=JSON.stringify(this.snap());try{localStorage.setItem(KEY,j)}catch(e){}
+  if(this.user&&j!==this.synced){clearTimeout(this.pushT);this.pushT=setTimeout(()=>this.syncNow(),1200)}},
  scrollTiles(){document.querySelectorAll('.tilewrap,.chartwrap').forEach(e=>e.scrollLeft=e.scrollWidth)},
  toggleTheme(){const r=document.documentElement;r.classList.add('theme-anim');this.theme=this.theme==='dark'?'light':'dark';r.dataset.theme=this.theme;try{localStorage.setItem('tomato.theme',this.theme)}catch(e){}setTimeout(()=>r.classList.remove('theme-anim'),450)},
  go(t){this.tab=t;try{history.replaceState(null,'','#'+t)}catch(e){}},
@@ -316,14 +380,79 @@ function app(){const st=load();return{
  say(m){this.toast=m;clearTimeout(this.toastT);this.toastT=setTimeout(()=>this.toast='',2600)},
  hasData(){return this.tasks.length>0||Object.keys(this.h).length>0},
  summary(d){const n=d.tasks.length,s=Object.values(d.h).reduce((a,x)=>a+x.s,0);return n+' task'+(n===1?'':'s')+' and '+s+' session'+(s===1?'':'s')},
- exportData(){const data={tasks:this.tasks,h:this.h,cur:this.curId,next:this.nextId};
-  const u=URL.createObjectURL(new Blob([JSON.stringify({app:'tomato',version:2,exported:new Date().toISOString(),data},null,2)],{type:'application/json'}));
+ exportData(){const s=this.snap(),data={tasks:s.tasks,h:s.h,cur:s.cur};
+  const u=URL.createObjectURL(new Blob([JSON.stringify({app:'tomato',version:3,exported:new Date().toISOString(),data},null,2)],{type:'application/json'}));
   const a=document.createElement('a');a.href=u;a.download='tomato-backup-'+ymd(new Date())+'.json';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);this.say('Backup downloaded')},
  async readFile(e){const f=e.target.files[0];e.target.value='';if(!f)return;let o=null;try{o=JSON.parse(await f.text())}catch(err){}const d=clean(o);
   this.saved=false;this.imp=d&&{data:d,at:typeof o.exported==='string'&&!isNaN(Date.parse(o.exported))?new Date(o.exported).toLocaleDateString('en',{month:'short',day:'numeric',year:'numeric'}):''};
   this.impErr=d?'':"It isn't a Tomato backup, or the file is damaged. Choose a .json file made with “Download backup”.";
   this.$nextTick(()=>this.$refs.dlg.showModal())},
- applyImport(){const d=this.imp.data;this.tasks=d.tasks;this.h=d.h;this.curId=d.cur;this.nextId=d.next;this.$refs.dlg.close();this.say('Imported '+this.summary(d))},
+ /* an import replaces everything, on every device: a new generation id (e) tells other devices to take it rather than merge */
+ applyImport(){const d=this.imp.data;this.apply({...d,x:{},e:newId()});if(this.user){this.sync.force=true;this.saveSync()}this.$refs.dlg.close();this.say('Imported '+this.summary(d))},
+ /* account + sync */
+ status(){if(!this.user)return'Your data is saved in this browser only.';const m=this.user.email;
+  return{synced:'Synced to '+m,offline:"Offline. Changes are kept here and will sync when you're back.",error:"Couldn't reach the server. Changes are kept here; trying again soon."}[this.syncSt]||'Saving to '+m+'…'},
+ saveSync(){try{localStorage.setItem(SYNC,JSON.stringify(this.sync))}catch(e){}},
+ initCloud(){const c=window.TOMATO_SYNC;if(!c||!c.url||!c.key||!window.supabase)return;
+  /* a sign-in link that expired or was already used comes back with an error in the URL */
+  const q=new URLSearchParams(location.hash.slice(1)+'&'+location.search.slice(1)),bad=q.get('error_description');
+  if(bad){try{history.replaceState(null,'',location.pathname)}catch(e){}this.acct.err=/expired|invalid/i.test(bad)?'That sign-in link has expired or was already used. Enter your email to get a new one.':q.get('error')==='access_denied'?"Sign-in was cancelled. Try again whenever you're ready.":"Sign-in didn't finish ("+bad+'). Try again.';this.$nextTick(()=>document.getElementById('acct').showModal())}
+  try{sb=window.supabase.createClient(c.url,c.key,{auth:{flowType:'implicit',storageKey:'tomato.auth'}})}catch(e){return}
+  this.cloud=true;
+  sb.auth.onAuthStateChange((ev,s)=>setTimeout(()=>this.onAuth(ev,s&&s.user))); /* setTimeout: Supabase can't be called from inside this callback */
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)this.syncNow()});
+  window.addEventListener('online',()=>this.syncNow());
+  setInterval(()=>{if(!document.hidden)this.syncNow()},60000)},
+ onAuth(ev,u){if((u?u.id:null)===(this.user?this.user.id:null))return;
+  if(!u){this.user=null;this.syncSt='';this.synced=null;this.sync=loadSync();this.apply(load());return} /* signed out in another tab */
+  if(this.sync.uid&&this.sync.uid!==u.id){this.apply(seed());this.sync={uid:null,rev:0,force:false}} /* this browser held a different account's data */
+  this.user={id:u.id,email:u.email||''};
+  if(document.getElementById('acct').open)document.getElementById('acct').close();
+  if(ev==='SIGNED_IN')this.say('Signed in as '+this.user.email);
+  this.syncNow()},
+ openAcct(){this.acct.err='';this.acct.busy=false;if(!this.user&&this.acct.step==='code'&&!this.acct.email)this.acct.step='email';document.getElementById('acct').showModal()},
+ authErr(e){const m=e&&e.message||'';
+  return /rate limit/i.test(m)?'Too many emails were sent just now. Wait a few minutes and try again.':/expired|invalid|token/i.test(m)?"That code didn't work. Check it, or ask for a new one.":/fetch|network/i.test(m)||!navigator.onLine?"Couldn't reach the server. Check your connection and try again.":m||'Something went wrong. Try again.'},
+ /* leaves the page for Google and comes back signed in (handled by onAuth) */
+ async google(){this.acct.busy='google';this.acct.err='';
+  const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}}).catch(e=>({error:e}));
+  if(error){this.acct.busy=false;this.acct.err=this.authErr(error)}},
+ async sendCode(){const em=this.acct.email.trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)){this.acct.err='Enter a valid email address.';return}
+  this.acct.busy=true;this.acct.err='';
+  const{error}=await sb.auth.signInWithOtp({email:em,options:{emailRedirectTo:location.origin+location.pathname}}).catch(e=>({error:e}));
+  this.acct.busy=false;if(error){this.acct.err=this.authErr(error);return}
+  this.acct.sent=this.acct.step==='code';if(!this.acct.sent)this.acct.codeOn=false;this.acct.email=em;this.acct.code='';this.acct.step='code'},
+ async verifyCode(){const c=this.acct.code;if(c.length<6){this.acct.err='Enter the code from the email.';return}
+  this.acct.busy=true;this.acct.err='';
+  const{error}=await sb.auth.verifyOtp({email:this.acct.email,token:c,type:'email'}).catch(e=>({error:e}));
+  this.acct.busy=false;if(error)this.acct.err=this.authErr(error);else{this.acct.step='email';this.acct.code=''}},
+ /* changes that haven't reached the cloud are pushed first; if that fails we don't sign out, so nothing is lost */
+ async signOut(){this.acct.busy=true;this.acct.err='';
+  if(JSON.stringify(this.snap())!==this.synced){await this.syncNow();
+   if(JSON.stringify(this.snap())!==this.synced){this.acct.busy=false;this.acct.err="Some changes haven't synced yet. Try again when you're online.";return}}
+  this.user=null;this.syncSt='';this.synced=null;this.sync={uid:null,rev:0,force:false};
+  try{localStorage.removeItem(KEY);localStorage.removeItem(SYNC)}catch(e){}
+  this.apply(seed());await sb.auth.signOut({scope:'local'}).catch(()=>{});
+  document.getElementById('acct').close();this.say('Signed out. Your data is safe in your account')},
+ /* pull, merge, push. rev is a version number: a write only lands if nobody else wrote since we read, otherwise we go round again */
+ async syncNow(){if(!this.user)return;if(this.syncing){this.again=true;return}
+  this.syncing=true;clearTimeout(this.pushT);
+  try{for(let i=0;i<5;i++){const uid=this.user&&this.user.id;if(!uid)break;
+    const r=await sb.from('tomato').select('data,rev').eq('user_id',uid).maybeSingle();if(r.error)throw r.error;
+    const row=r.data,rev=row?row.rev:0,remote=row&&clean(row.data);
+    if(!this.user||this.user.id!==uid)break;
+    if(remote&&!this.sync.force&&(rev!==this.sync.rev||this.sync.uid!==uid)){
+     const mine=this.snap();this.apply(this.sync.uid===uid&&mine.e!==remote.e?remote:merge(mine,remote))}
+    this.sync.uid=uid;
+    const d=this.snap(),j=JSON.stringify(d);
+    if(remote&&!this.sync.force&&j===JSON.stringify(remote)){this.sync.rev=rev;this.synced=j;break}
+    const w=await(row?sb.from('tomato').update({data:d,rev:rev+1}).eq('user_id',uid).eq('rev',rev):sb.from('tomato').insert({user_id:uid,data:d,rev:1})).select('rev');
+    if(w.error){if(w.error.code==='23505')continue;throw w.error} /* someone created the row first */
+    if(!w.data||!w.data.length)continue; /* someone wrote first */
+    this.sync.rev=w.data[0].rev;this.synced=j;this.sync.force=false;break}
+   this.saveSync();this.syncSt=JSON.stringify(this.snap())===this.synced?'synced':'saving'}
+  catch(e){this.syncSt=navigator.onLine?'error':'offline'}
+  finally{this.syncing=false;if(this.syncSt==='synced')clearTimeout(this.pushT);if(this.again||(this.user&&this.syncSt==='saving')){this.again=false;clearTimeout(this.pushT);this.pushT=setTimeout(()=>this.syncNow(),1200)}}},
  /* timer */
  clock(){return pad(Math.floor(this.left/60))+':'+pad(this.left%60)},
  setMode(m){this.mode=m;this.total=this.modes.find(x=>x.id===m).s;this.left=this.total;this.run=false},
@@ -331,7 +460,7 @@ function app(){const st=load();return{
  reset(){this.run=false;this.left=this.total},
  skip(){this.run=false;this.next(false)},
  tick(){if(!this.run)return;const l=Math.max(0,Math.round((this.end-Date.now())/1000));if(l!==this.left)this.left=l;if(l===0){this.run=false;this.next(true)}},
- next(done){if(this.mode==='focus'){if(done){const k=ymd(new Date()),d=this.h[k]||{s:0,m:0};this.h[k]={s:d.s+1,m:d.m+25};const t=this.cur();if(t)t.n++}
+ next(done){if(this.mode==='focus'){if(done){const k=ymd(new Date()),d=this.h[k]||{s:0,m:0};this.h[k]={s:d.s+1,m:d.m+25};const t=this.cur();if(t){t.n++;t.u=Date.now()}}
    this.setMode(done&&this.today().s%4===0?'long':'short')}else this.setMode('focus')},
  cycle(){const s=this.today().s;return s&&s%4===0?4:s%4},
  cur(){return this.tasks.find(t=>t.id===this.curId&&!t.d)},
@@ -340,14 +469,14 @@ function app(){const st=load();return{
  open(){return this.tasks.filter(t=>!t.d)},
  focusList(){return[...this.tasks].filter(t=>!t.d||t.due===this.todayKey).sort((a,b)=>a.d-b.d||this.quads.findIndex(q=>q.id===a.q)-this.quads.findIndex(q=>q.id===b.q))},
  listed(){return this.tasks.filter(t=>this.filter==='all'||(this.filter==='done')===t.d)},
- mk(t,q,due){this.tasks.unshift({id:this.nextId++,t,q,d:false,n:0,due:due||''})},
+ mk(t,q,due){this.tasks.unshift({id:newId(),t,q,d:false,n:0,due:due||'',u:Date.now()})},
  addQuick(){const v=this.draft.trim();if(!v)return;this.mk(v,'plan',this.todayKey);this.draft=''},
  addFull(){const v=this.draft.trim();if(!v)return;this.mk(v,this.draftQ,this.draftDue);this.draft='';this.draftDue=''},
  addTo(q){const v=this.qdraft.trim();if(v)this.mk(v,q);this.qdraft='';this.adding=null},
  addDue(){const v=this.draft.trim();if(!v)return;this.mk(v,'plan',this.selDay);this.draft=''},
- toggleDone(t){t.d=!t.d;if(t.d&&this.curId===t.id)this.curId=null},
- del(t){this.tasks=this.tasks.filter(x=>x!==t);if(this.curId===t.id)this.curId=null},
- drop(q){const t=this.tasks.find(x=>x.id===this.dragId);if(t)t.q=q;this.over=null;this.dragId=null},
+ toggleDone(t){t.d=!t.d;t.u=Date.now();if(t.d&&this.curId===t.id)this.curId=null},
+ del(t){this.tasks=this.tasks.filter(x=>x!==t);if(this.sync.uid)this.x={...this.x,[String(t.id)]:Date.now()};if(this.curId===t.id)this.curId=null},
+ drop(q){const t=this.tasks.find(x=>x.id===this.dragId);if(t&&t.q!==q){t.q=q;t.u=Date.now()}this.over=null;this.dragId=null},
  /* stats */
  hist(k){return this.h[k]||{s:0,m:0}},today(){return this.hist(ymd(new Date()))},
  totals(){let s=0,m=0;for(const k in this.h){s+=this.h[k].s;m+=this.h[k].m}return{s,m}},
